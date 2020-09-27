@@ -50,54 +50,6 @@ class SSOInstanceWidgets(QObject):
         #TODO: disconnect?
         pass
 
-class AWSSSOLoginTrayIcon(QSystemTrayIcon):
-    needs_reload = pyqtSignal()
-    needs_refresh = pyqtSignal([str], [str, bool])
-    instance_enabled = pyqtSignal(str, bool)
-
-    def __init__(self, icon, config):
-        super().__init__(icon)
-        self.setToolTip("AWS SSO")
-
-        self.config = config
-
-        self.expired = set()
-
-        self.activated.connect(self._on_activated)
-        self.messageClicked.connect(self._on_notification_clicked)
-
-        self.config.reloaded.connect(self.on_reload)
-        self.config.status_changed.connect(self.on_status_changed)
-
-        self.needs_reload.connect(self.config.reload)
-        self.needs_refresh.connect(self.config.refresh)
-        self.instance_enabled.connect(self.config.set_enable)
-
-        self.logger = LOGGER.getChild("AWSSSOLoginTrayIcon")
-
-    def on_reload(self, sso_instances):
-        pass
-
-    def on_status_changed(self, sso_id, status, expiration):
-        self.logger.debug('on_status_changed id=%s status=%s exp=%s', sso_id, status, expiration)
-        if status == STATUS_EXPIRED:
-            self.expired.add(sso_id)
-        else:
-            self.expired.discard(sso_id)
-
-        if status == STATUS_EXPIRED and self.expired:
-            verb = "have" if len(self.expired) > 1 else "has"
-            ids = ', '.join(sorted(self.expired))
-            self.showMessage("AWS SSO", "{} {} expired, click to log in".format(ids, verb))
-
-    def _on_activated(self, activation_reason):
-        self.logger.debug('on_sys_tray_icon_activated', activation_reason)
-
-    def _on_notification_clicked(self):
-        self.logger.debug('on_notification_clicked expired=%s', sorted(self.expired))
-        for sso_id in sorted(self.expired):
-            self.needs_refresh.emit(sso_id)
-
 class AWSSSOLoginWindow(QWidget):
 
     needs_reload = pyqtSignal()
@@ -122,6 +74,7 @@ class AWSSSOLoginWindow(QWidget):
         self.widget_index = {}
 
         self.config.reloaded.connect(self.on_reload)
+        self.config.reload_status_update_finished.connect(self.on_reload_status_update_finished)
         self.config.status_changed.connect(self.on_status_changed)
 
         self.needs_reload.connect(self.config.reload)
@@ -169,8 +122,70 @@ class AWSSSOLoginWindow(QWidget):
             sso_instance_widgets = self.widget_index.pop(sso_id)
             sso_instance_widgets.decommision()
 
+    def on_reload_status_update_finished(self):
+        pass
 
     def on_status_changed(self, sso_id, status, expiration):
         self.logger.debug('on_status_changed id=%s status=%s exp=%s', sso_id, status, expiration)
         sso_instance_widgets = self.widget_index[sso_id]
         sso_instance_widgets.update_status(status, expiration)
+
+class AWSSSOLoginTrayIcon(QSystemTrayIcon):
+    needs_reload = pyqtSignal()
+    needs_refresh = pyqtSignal([str], [str, bool])
+    instance_enabled = pyqtSignal(str, bool)
+
+    def __init__(self, icon, config):
+        super().__init__(icon)
+        self.setToolTip("AWS SSO")
+
+        self.config = config
+
+        self.expired = set()
+
+        self.activated.connect(self._on_activated)
+        self.messageClicked.connect(self._on_notification_clicked)
+
+        self.config.reloaded.connect(self.on_reload)
+        self.config.reload_status_update_finished.connect(self.on_reload_status_update_finished)
+        self.config.status_changed.connect(self.on_status_changed)
+
+        self.needs_reload.connect(self.config.reload)
+        self.needs_refresh.connect(self.config.refresh)
+        self.instance_enabled.connect(self.config.set_enable)
+
+        self._first_load = True
+
+        self.logger = LOGGER.getChild("AWSSSOLoginTrayIcon")
+
+    def _show_message(self):
+        if self.expired:
+            verb = "have" if len(self.expired) > 1 else "has"
+            ids = ', '.join(sorted(self.expired))
+            self.showMessage("AWS SSO", "{} {} expired, click to log in".format(ids, verb))
+
+    def on_reload(self, sso_instances):
+        pass
+
+    def on_reload_status_update_finished(self):
+        if self._first_load:
+            self._show_message()
+            self._first_load = False
+
+    def on_status_changed(self, sso_id, status, expiration):
+        self.logger.debug('on_status_changed id=%s status=%s exp=%s', sso_id, status, expiration)
+        if status == STATUS_EXPIRED:
+            self.expired.add(sso_id)
+        else:
+            self.expired.discard(sso_id)
+
+        if not self._first_load and status == STATUS_EXPIRED and self.expired:
+            self._show_message()
+
+    def _on_activated(self, activation_reason):
+        self.logger.debug('on_sys_tray_icon_activated', activation_reason)
+
+    def _on_notification_clicked(self):
+        self.logger.debug('on_notification_clicked expired=%s', sorted(self.expired))
+        for sso_id in sorted(self.expired):
+            self.needs_refresh.emit(sso_id)

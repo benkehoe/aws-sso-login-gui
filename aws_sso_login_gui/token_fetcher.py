@@ -12,7 +12,7 @@
 # ANY KIND, either express or implied. See the License for the specific
 # language governing permissions and limitations under the License.
 
-# this is the new content of botocore.utils in the v2 branch
+# this is modified from the content of botocore.utils in the v2 branch
 
 import time
 import datetime

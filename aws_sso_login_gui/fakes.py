@@ -9,6 +9,7 @@ from botocore.utils import tzutc
 from botocore.compat import total_seconds
 
 from PyQt5.QtCore import QThread
+from PyQt5.QtWidgets import QWidget, QDateTimeEdit, QCheckBox, QPushButton, QFormLayout
 
 LOGGER = logging.getLogger("fakes")
 
@@ -136,3 +137,16 @@ USER_CODES = [
     'otter',
     'quokka',
 ]
+
+class ControlsWidget(QWidget):
+    def __init__(self):
+        super().__init__()
+
+        self._layout = QFormLayout()
+        self.setLayout(self._layout)
+
+        self._time_fetcher_input = QDateTimeEdit(self._utc_now())
+        self._layout.addRow("Time", self._time_fetcher_input)
+
+    def _utc_now(self):
+        return datetime.datetime.now(tzutc())

@@ -2,9 +2,7 @@ import logging
 import time
 import argparse
 
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
+from PyQt5 import QtCore, QtWidgets, QtGui
 
 from . import fakes, widgets, token_fetcher
 from .config import Config
@@ -36,27 +34,29 @@ def get_config_loader(parser, args):
 def get_token_fetcher_kwargs(parser, args):
     kwargs = {}
     if args.token_fetcher_controls:
-        parser.error("Not implemented")
+        controls = fakes.ControlsWidget()
+    else:
+        controls = None
     if args.fake_token_fetcher:
         kwargs['delay'] = 20
     kwargs['on_pending_authorization'] = token_fetcher.on_pending_authorization
-    return kwargs
+    return kwargs, controls
 
 def get_token_fetcher_creator(parser, args):
-    kwargs = get_token_fetcher_kwargs(parser, args)
+    kwargs, controls = get_token_fetcher_kwargs(parser, args)
     if args.fake_token_fetcher:
         token_fetcher_creator = fakes.get_token_fetcher_creator(**kwargs)
     else:
         kwargs['session'] = get_session()
         token_fetcher_creator = token_fetcher.get_token_fetcher_creator(**kwargs)
-    return token_fetcher_creator
+    return token_fetcher_creator, controls
 
 def initialize(parser, app, config_loader, token_fetcher_creator):
-    icon = QIcon("sso-icon.png")
+    icon = QtGui.QIcon("sso-icon.png")
 
     app.setWindowIcon(icon)
 
-    thread = QThread()
+    thread = QtCore.QThread()
 
     config = Config(config_loader, token_fetcher_creator)
 
@@ -69,13 +69,13 @@ def initialize(parser, app, config_loader, token_fetcher_creator):
 
     return config, thread, window, tray_icon
 
-class ThreadIdLogger(QObject):
+class ThreadIdLogger(QtCore.QObject):
     def __init__(self, thread_name):
         super().__init__()
         self.thread_name = thread_name
 
     def log_id(self):
-        LOGGER.debug('%s thread id: %i', self.thread_name, int(QThread.currentThreadId()))
+        LOGGER.debug('%s thread id: %i', self.thread_name, int(QtCore.QThread.currentThreadId()))
 
 def main():
     parser = argparse.ArgumentParser()
@@ -95,16 +95,21 @@ def main():
         log_kwargs['level'] = getattr(logging, args.log_level)
     logging.basicConfig(**log_kwargs)
 
-    app = QApplication([])
+    app = QtWidgets.QApplication([])
 
     config_loader = get_config_loader(parser, args)
 
-    token_fetcher_creator = get_token_fetcher_creator(parser, args)
+    token_fetcher_creator, controls = get_token_fetcher_creator(parser, args)
 
     config, thread, window, tray_icon = initialize(parser, app, config_loader, token_fetcher_creator)
 
     window.show()
     tray_icon.show()
+
+    if controls:
+        controls.setParent(window, QtCore.Qt.Window)
+        controls.show()
+
 
     ThreadIdLogger("main").log_id()
     worker_thread_logger = ThreadIdLogger("worker")
@@ -114,7 +119,7 @@ def main():
     thread.start()
 
     def on_close():
-        print('on_close')
+        LOGGER.debug('on_close')
         thread.terminate()
 
     app.lastWindowClosed.connect(on_close)

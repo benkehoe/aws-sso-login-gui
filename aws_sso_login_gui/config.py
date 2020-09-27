@@ -145,6 +145,7 @@ class Config(QObject):
 
     status_changed = pyqtSignal(str, str, str)
     reloaded = pyqtSignal(list)
+    reload_status_update_finished = pyqtSignal()
 
     def __init__(self, config_loader, token_fetcher_creator):
         super().__init__()
@@ -154,6 +155,8 @@ class Config(QObject):
         self.sso_instances = {}
         self.misconfigured_profiles = []
         self._token_fetchers = {}
+
+        self._first_load = True
 
         self.logger = LOGGER.getChild("Config")
 
@@ -167,6 +170,7 @@ class Config(QObject):
             status = instance.get_status(update=True, _emit=False)
             self.logger.info("Loaded SSO instance %s (%s) for profiles %s", sso_id, status, instance.profile_names)
             instance._emit()
+        self.reload_status_update_finished.emit()
 
     @pyqtSlot(str)
     @pyqtSlot(str, bool)
