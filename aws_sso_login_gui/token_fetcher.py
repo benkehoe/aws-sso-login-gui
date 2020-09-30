@@ -38,11 +38,6 @@ from botocore import UNSIGNED
 from botocore.compat import total_seconds
 # from botocore.compat import compat_shell_split
 from botocore.config import Config
-# from botocore.exceptions import UnknownCredentialError
-# from botocore.exceptions import PartialCredentialsError
-# from botocore.exceptions import ConfigNotFound
-# from botocore.exceptions import InvalidConfigError
-# from botocore.exceptions import PendingAuthorizationExpiredError
 
 from botocore.credentials import JSONFileCache
 
@@ -52,7 +47,29 @@ from botocore.utils import (
     tzutc
 )
 
-from .vendored_botocore.exceptions import PendingAuthorizationExpiredError
+from botocore.exceptions import BotoCoreError
+
+class SSOError(BotoCoreError):
+    fmt = "An unspecified error happened when resolving SSO credentials"
+
+
+class PendingAuthorizationExpiredError(SSOError):
+    fmt = (
+        "The pending authorization to retrieve an SSO token has expired. The "
+        "device authorization flow to retrieve an SSO token must be restarted."
+    )
+
+
+class SSOTokenLoadError(SSOError):
+    fmt = "Error loading SSO Token: {error_msg}"
+
+
+class UnauthorizedSSOTokenError(SSOError):
+    fmt = (
+        "The SSO session associated with this profile has expired or is "
+        "otherwise invalid. To refresh this SSO session run aws2 sso login "
+        "with the corresponding profile."
+    )
 
 LOGGER = logging.getLogger("token_fetcher")
 
