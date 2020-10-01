@@ -19,7 +19,10 @@ import re
 class SectionNotFoundError(Exception):
     pass
 
-def write_values(session, config_file_writer, profile_name, values):
+def write_values(session, profile_name, values, config_file_writer=None):
+    if not config_file_writer:
+        config_file_writer = ConfigFileWriter()
+
     new_values = values.copy()
 
     # The access_key/secret_key are now *always* written to the shared

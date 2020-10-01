@@ -14,9 +14,9 @@ logging.basicConfig(level=logging.DEBUG)
 cache = {}
 
 SESSION = None
-def get_session():
+def get_session(refresh=False):
     global SESSION
-    if not SESSION:
+    if not SESSION or refresh:
         import botocore.session
         SESSION = botocore.session.Session()
     return SESSION
@@ -26,8 +26,8 @@ def get_config_loader(parser, args):
         import botocore.configloader
         config_data = botocore.configloader.load_config(args.fake_config)
         return fakes.get_config_loader(config_data['profiles'])
-    session = get_session()
     def config_loader():
+        session = get_session(refresh=True)
         return session.full_config['profiles']
     return config_loader
 
@@ -35,10 +35,12 @@ def get_token_fetcher_kwargs(parser, args):
     kwargs = {}
     if args.token_fetcher_controls:
         controls = fakes.ControlsWidget()
+        if args.fake_token_fetcher:
+            kwargs['delay'] = controls.delay
     else:
         controls = None
-    if args.fake_token_fetcher:
-        kwargs['delay'] = 20
+        if args.fake_token_fetcher:
+            kwargs['delay'] = 20
     kwargs['on_pending_authorization'] = token_fetcher.on_pending_authorization
     return kwargs, controls
 
@@ -51,14 +53,14 @@ def get_token_fetcher_creator(parser, args):
         token_fetcher_creator = token_fetcher.get_token_fetcher_creator(**kwargs)
     return token_fetcher_creator, controls
 
-def initialize(parser, app, config_loader, token_fetcher_creator):
+def initialize(parser, app, config_loader, token_fetcher_creator, time_fetcher=None):
     icon = QtGui.QIcon("sso-icon.png")
 
     app.setWindowIcon(icon)
 
     thread = QtCore.QThread()
 
-    config = Config(config_loader, token_fetcher_creator)
+    config = Config(config_loader, token_fetcher_creator, time_fetcher=time_fetcher, session_fetcher=get_session)
 
     config.moveToThread(thread)
 
@@ -101,12 +103,17 @@ def main():
 
     token_fetcher_creator, controls = get_token_fetcher_creator(parser, args)
 
-    config, thread, window, tray_icon = initialize(parser, app, config_loader, token_fetcher_creator)
+    time_fetcher = None
+    if controls:
+        time_fetcher = controls.get_time
+
+    config, thread, window, tray_icon = initialize(parser, app, config_loader, token_fetcher_creator, time_fetcher=time_fetcher)
 
     window.show()
     tray_icon.show()
 
     if controls:
+        controls.time_changed.connect(config.update_timers)
         controls.setParent(window, QtCore.Qt.Window)
         controls.show()
 

@@ -8,8 +8,8 @@ import logging
 from botocore.utils import tzutc
 from botocore.compat import total_seconds
 
-from PyQt5.QtCore import QThread
-from PyQt5.QtWidgets import QWidget, QDateTimeEdit, QCheckBox, QPushButton, QFormLayout
+from PyQt5.QtCore import QThread, Qt, pyqtSignal
+from PyQt5.QtWidgets import QWidget, QDateTimeEdit, QCheckBox, QPushButton, QFormLayout, QLineEdit
 
 LOGGER = logging.getLogger("fakes")
 
@@ -75,6 +75,13 @@ class FakeTokenFetcher:
     def _get_cache_key(self, start_url):
         return hashlib.sha1(start_url.encode('utf-8')).hexdigest()
 
+    def get_expiration(self, start_url):
+        cache_key = self._get_cache_key(start_url)
+        if cache_key in self._cache:
+            token = self._cache[cache_key]
+            end_time = self._parse_if_needed(token['expiresAt'])
+            return end_time
+
     def refresh_deadline(self, start_url):
         cache_key = self._get_cache_key(start_url)
         if cache_key in self._cache:
@@ -139,14 +146,35 @@ USER_CODES = [
 ]
 
 class ControlsWidget(QWidget):
+    time_changed = pyqtSignal()
+
     def __init__(self):
         super().__init__()
 
         self._layout = QFormLayout()
         self.setLayout(self._layout)
 
-        self._time_fetcher_input = QDateTimeEdit(self._utc_now())
-        self._layout.addRow("Time", self._time_fetcher_input)
+        self._time_fetcher_input = QDateTimeEdit(datetime.datetime.now())
+        self._layout.addRow("Current time", self._time_fetcher_input)
+
+        self._time_fetcher_input.dateTimeChanged.connect(self._on_time_changed)
+
+        self._delay_input = QLineEdit("5")
+        self._layout.addRow("Fake token fetcher delay", self._delay_input)
+
+        self.logger = LOGGER.getChild("ControlsWidget")
 
     def _utc_now(self):
         return datetime.datetime.now(tzutc())
+
+    def _on_time_changed(self, qt_datetime):
+        self.logger.debug("time changed: %s", self.get_time().isoformat())
+        self.time_changed.emit()
+
+    def get_time(self):
+        value = self._time_fetcher_input.dateTime()
+        return datetime.datetime.fromtimestamp(value.toSecsSinceEpoch(), tz=tzutc())
+
+    def delay(self):
+        value = float(self._delay_input.text())
+        time.sleep(value)

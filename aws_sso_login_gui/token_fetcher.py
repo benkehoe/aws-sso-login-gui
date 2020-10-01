@@ -254,6 +254,14 @@ class SSOTokenFetcher(object):
 
         return self.refresh_deadline(start_url)
 
+    def get_expiration(self, start_url):
+        cache_key = self._get_cache_key(start_url)
+        if cache_key in self._cache:
+            token = self._cache[cache_key]
+            end_time = self._parse_if_needed(token['expiresAt'])
+            return end_time
+        return None
+
     def refresh_deadline(self, start_url):
         cache_key = self._get_cache_key(start_url)
         if cache_key in self._cache:
