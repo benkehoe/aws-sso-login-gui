@@ -4,6 +4,7 @@ import re
 import os
 import logging
 import configparser
+import traceback
 
 import botocore.session
 from botocore.utils import tzutc
@@ -292,4 +293,5 @@ class Config(QObject):
             self.import_finished.emit(list(profiles.keys()), '')
             self.reload()
         except Exception as e:
+            logger.error("An error occurred during import: %s\n%s", str(e), traceback.format_exc())
             self.import_finished.emit([], str(e))

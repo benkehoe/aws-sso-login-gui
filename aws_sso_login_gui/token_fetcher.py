@@ -77,13 +77,15 @@ def on_pending_authorization(**kwargs):
     LOGGER.debug('on_pending_auth', kwargs)
     webbrowser.open(kwargs['verificationUriComplete'])
 
-SSO_TOKEN_DIR = os.path.expanduser(
-    os.path.join('~', '.aws', 'sso', 'cache')
-)
+def get_token_dir(home_dir):
+    return os.path.expanduser(os.path.join(home_dir, '.aws', 'sso', 'cache'))
 
-def get_token_fetcher_creator(session, on_pending_authorization, cache=None):
+def get_token_fetcher_creator(session, on_pending_authorization, cache=None, home_dir=None):
     if cache is None:
-        cache = JSONFileCache(SSO_TOKEN_DIR)
+        if home_dir is None:
+            home_dir = '~'
+        token_dir = get_token_dir(home_dir)
+        cache = JSONFileCache(token_dir)
     def token_fetcher_creator(region):
         return SSOTokenFetcher(
             sso_region=region,

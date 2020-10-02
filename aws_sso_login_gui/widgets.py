@@ -23,7 +23,7 @@ LOGGER = logging.getLogger("widgets")
 
 def status_to_style(status):
     if status in [STATUS_VALID]:
-        return "{}"
+        return "QLabel {}"
     elif status in [STATUS_EXPIRED, STATUS_REFRESH_FAILED]:
         return "QLabel { color : red }"
     elif status in [STATUS_REFRESHING]:
@@ -31,7 +31,7 @@ def status_to_style(status):
     elif status in [STATUS_DISABLED]:
         return "QLabel { color : gray }"
     else:
-        return "{}"
+        return "QLabel {}"
 
 class SSOInstanceWidgets(QObject):
     def __init__(self, sso_id):
@@ -64,13 +64,12 @@ class SSOInstanceWidgets(QObject):
             else:
                 self.refresh_button.setEnabled(False)
 
-        #TODO: parse and display something friendly
         expiration_text = expiration
         if expiration:
             exp_dt = datetime.datetime.fromisoformat(expiration)
             local_tz = dateutil.tz.gettz()
             exp_dt_local = exp_dt.astimezone(local_tz)
-            expiration_text = exp_dt_local.strftime('%Y-%M-%d %H:%M:%S')
+            expiration_text = exp_dt_local.strftime('%Y-%M-%d %H:%M')
         self.expiration_label.setText(expiration_text)
 
     def decommision(self):
@@ -85,10 +84,13 @@ class AWSSSOLoginWindow(QWidget):
 
     needs_import = pyqtSignal(str)
 
-    def __init__(self, config):
+    def __init__(self, icon, config):
         super().__init__()
 
         self.config = config
+
+        self.setWindowIcon(icon)
+        self.setWindowTitle("AWS SSO login")
 
         self.outer_layout = QVBoxLayout()
         self.setLayout(self.outer_layout)
@@ -268,7 +270,7 @@ class AWSSSOLoginTrayIcon(QSystemTrayIcon):
             self._show_message()
 
     def _on_activated(self, activation_reason):
-        self.logger.debug('on_sys_tray_icon_activated', activation_reason)
+        self.logger.debug('on_sys_tray_icon_activated %s', activation_reason)
 
     def _on_notification_clicked(self):
         self.logger.debug('on_notification_clicked expired=%s', sorted(self.expired))
