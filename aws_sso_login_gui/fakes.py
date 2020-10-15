@@ -9,7 +9,7 @@ from botocore.utils import tzutc
 from botocore.compat import total_seconds
 
 from PyQt5.QtCore import QThread, Qt, pyqtSignal
-from PyQt5.QtWidgets import QWidget, QDateTimeEdit, QCheckBox, QPushButton, QFormLayout, QLineEdit
+from PyQt5.QtWidgets import QWidget, QDateTimeEdit, QCheckBox, QPushButton, QFormLayout, QLineEdit, QVBoxLayout
 
 LOGGER = logging.getLogger("fakes")
 
@@ -148,19 +148,35 @@ USER_CODES = [
 class ControlsWidget(QWidget):
     time_changed = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, test_token_fetcher):
         super().__init__()
 
-        self._layout = QFormLayout()
-        self.setLayout(self._layout)
+        self._time = datetime.datetime.now(tz=tzutc())
+        self._delay = 5
 
-        self._time_fetcher_input = QDateTimeEdit(datetime.datetime.now())
+        self._outer_layout = QVBoxLayout()
+
+        self.setLayout(self._outer_layout)
+
+        self._widget = QWidget()
+        self._layout = QFormLayout()
+        self._widget.setLayout(self._layout)
+
+        self._time_fetcher_input = QDateTimeEdit(self._time)
         self._layout.addRow("Current time", self._time_fetcher_input)
 
         self._time_fetcher_input.dateTimeChanged.connect(self._on_time_changed)
 
-        self._delay_input = QLineEdit("5")
-        self._layout.addRow("Fake token fetcher delay", self._delay_input)
+        self._delay_input = QLineEdit(str(self._delay))
+        if test_token_fetcher:
+            self._layout.addRow("Fake token fetcher login delay", self._delay_input)
+
+        self._outer_layout.addWidget(self._widget)
+
+        self._save_button = QPushButton("Save")
+        self._outer_layout.addWidget(self._save_button)
+
+        self._save_button.clicked.connect(self._on_save)
 
         self.logger = LOGGER.getChild("ControlsWidget")
 
@@ -168,12 +184,18 @@ class ControlsWidget(QWidget):
         return datetime.datetime.now(tzutc())
 
     def _on_time_changed(self, qt_datetime):
-        self.logger.debug("time changed: %s", self.get_time().isoformat())
+        pass
+
+    def _on_save(self):
+        self._delay = float(self._delay_input.text())
+        time_value = self._time_fetcher_input.dateTime()
+        self._time = datetime.datetime.fromtimestamp(time_value.toSecsSinceEpoch(), tz=tzutc())
+        self.logger.debug("delay set: %s", self._delay)
+        self.logger.debug("time set:  %s", self._time.isoformat())
         self.time_changed.emit()
 
     def get_time(self):
-        value = self._time_fetcher_input.dateTime()
-        return datetime.datetime.fromtimestamp(value.toSecsSinceEpoch(), tz=tzutc())
+        return self._time
 
     def delay(self):
         value = float(self._delay_input.text())

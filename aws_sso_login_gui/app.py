@@ -28,10 +28,10 @@ def get_session(refresh=False, home_dir=None):
     return SESSION
 
 def get_config_loader(parser, args):
-    if args.fake_config:
-        import botocore.configloader
-        config_data = botocore.configloader.load_config(args.fake_config)
-        return fakes.get_config_loader(config_data['profiles'])
+    # if args.test_config:
+    #     import botocore.configloader
+    #     config_data = botocore.configloader.load_config(args.test_config)
+    #     return fakes.get_config_loader(config_data['profiles'])
     def config_loader():
         session = get_session(refresh=True, home_dir=args.home_dir)
         return session.full_config['profiles']
@@ -39,13 +39,13 @@ def get_config_loader(parser, args):
 
 def get_token_fetcher_kwargs(parser, args):
     kwargs = {}
-    if args.token_fetcher_controls:
-        controls = fakes.ControlsWidget()
-        if args.fake_token_fetcher:
+    if args.test_controls:
+        controls = fakes.ControlsWidget(args.test_token_fetcher)
+        if args.test_token_fetcher:
             kwargs['delay'] = controls.delay
     else:
         controls = None
-        if args.fake_token_fetcher:
+        if args.test_token_fetcher:
             kwargs['delay'] = 20
     kwargs['on_pending_authorization'] = token_fetcher.on_pending_authorization
     if args.home_dir:
@@ -54,7 +54,7 @@ def get_token_fetcher_kwargs(parser, args):
 
 def get_token_fetcher_creator(parser, args):
     kwargs, controls = get_token_fetcher_kwargs(parser, args)
-    if args.fake_token_fetcher:
+    if args.test_token_fetcher:
         token_fetcher_creator = fakes.get_token_fetcher_creator(**kwargs)
     else:
         kwargs['session'] = get_session()
@@ -92,15 +92,13 @@ def main():
 
     parser.add_argument('--log-level', '-l', choices=['DEBUG', 'INFO'])
 
-    parser.add_argument('--fake-config')
-
-    parser.add_argument('--fake-token-fetcher', action='store_true')
-
-    parser.add_argument('--token-fetcher-controls', action='store_true')
-
     parser.add_argument('--home-dir')
 
     parser.add_argument('--wsl', nargs=2, metavar=('DISTRO', 'USER'))
+
+    parser.add_argument('--test-controls', action='store_true')
+
+    parser.add_argument('--test-token-fetcher', action='store_true')
 
     args = parser.parse_args()
 
