@@ -69,7 +69,7 @@ class SSOInstanceWidgets(QObject):
             exp_dt = datetime.datetime.fromisoformat(expiration)
             local_tz = dateutil.tz.gettz()
             exp_dt_local = exp_dt.astimezone(local_tz)
-            expiration_text = exp_dt_local.strftime('%Y-%M-%d %H:%M')
+            expiration_text = exp_dt_local.strftime('%Y-%m-%d %I:%M %p')
         self.expiration_label.setText(expiration_text)
 
     def decommision(self):
